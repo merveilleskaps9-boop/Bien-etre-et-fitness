@@ -1,0 +1,26 @@
+{
+  "name": "Merdi Fat Loss Journey",
+  "short_name": "FatLoss MK",
+  "description": "Application de suivi de perte de graisse personnalisée pour Merdi Kapuku",
+  "start_url": "./merdi_fat_loss_v3_responsive.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icon_merdi_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon_merdi_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
