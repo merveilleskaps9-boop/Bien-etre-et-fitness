@@ -3,7 +3,7 @@
 // Compatible GitHub Pages
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'fatLoss-v2';
+const CACHE_NAME = 'fatLoss-v3';
 const STATIC_ASSETS = [
   './merdi_fat_loss_v3_responsive.html',
   './benedicte_fat_loss_v3_responsive.html',
