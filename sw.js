@@ -1,91 +1,59 @@
-// ═══════════════════════════════════════════════════════════
-// SERVICE WORKER — Merdi & Bénédicte Fat Loss Apps
-// Compatible GitHub Pages
-// ═══════════════════════════════════════════════════════════
+// Service worker network-first — corrige le bug "ancienne version au démarrage".
+// Le HTML est toujours récupéré du réseau en priorité (donc tout nouveau déploiement
+// GitHub Pages apparaît immédiatement), avec repli sur le cache si hors ligne.
+// Les fichiers statiques (icônes, polices) restent en cache-first pour la vitesse.
+const CACHE = 'fatloss-v5';
 
-const CACHE_NAME = 'fatLoss-v3';
-const STATIC_ASSETS = [
-  './merdi_fat_loss_v3_responsive.html',
-  './benedicte_fat_loss_v3_responsive.html',
-  './icon_merdi_192.png',
-  './icon_merdi_512.png',
-  './icon_benedicte_192.png',
-  './icon_benedicte_512.png',
-  './manifest_merdi.json',
-  './manifest_benedicte.json'
-];
-
-// Installation
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS).catch(() => {}))
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', e => {
+  self.skipWaiting();
 });
 
-// Activation
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      ))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-// Fetch : ne pas intercepter Firestore ni Google APIs
-self.addEventListener('fetch', event => {
-  const url = event.request.url;
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
-  // Laisser passer toutes les requêtes réseau externes
-  if (url.includes('firestore.googleapis.com') ||
-      url.includes('googleapis.com') ||
-      url.includes('fonts.gstatic.com') ||
-      url.includes('fonts.googleapis.com') ||
-      url.includes('firebase') ||
-      !url.startsWith(self.location.origin)) {
-    return;
-  }
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
 
-  // Icônes et manifests : Cache First
-  if (url.match(/\.(png|ico|json)$/)) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(cached => cached || fetch(event.request)
-          .then(res => {
-            if (res && res.status === 200) {
-              caches.open(CACHE_NAME).then(c => c.put(event.request, res.clone()));
-            }
-            return res;
-          })
-        )
+  let url;
+  try { url = new URL(req.url); } catch (err) { return; }
+
+  // Ne jamais interférer avec Firebase, l'API ou tout domaine externe.
+  if (url.origin !== self.location.origin) return;
+
+  const isDoc = req.mode === 'navigate'
+    || req.destination === 'document'
+    || url.pathname.endsWith('.html')
+    || url.pathname === '/'
+    || url.pathname.endsWith('/');
+
+  if (isDoc) {
+    // Network-first : on tente le réseau, on met en cache, on retombe sur le cache si offline.
+    e.respondWith(
+      fetch(req).then(resp => {
+        const copy = resp.clone();
+        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        return resp;
+      }).catch(() => caches.match(req))
     );
     return;
   }
 
-  // HTML : Network First avec fallback cache
-  if (event.request.mode === 'navigate' || url.match(/\.html$/)) {
-    event.respondWith(
-      fetch(event.request)
-        .then(res => {
-          if (res && res.status === 200) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, res.clone()));
-          }
-          return res;
-        })
-        .catch(() => caches.match(event.request)
-          .then(cached => cached || new Response(
-            '<html><body style="font-family:sans-serif;text-align:center;padding:2rem;background:#050a14;color:#fff"><h2>📵 Hors ligne</h2><p>Reconnecte-toi pour synchroniser tes données.</p></body></html>',
-            { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-          ))
-        )
-    );
-    return;
-  }
-});
-
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  // Cache-first pour les assets statiques.
+  e.respondWith(
+    caches.match(req).then(cached => cached || fetch(req).then(resp => {
+      const copy = resp.clone();
+      caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+      return resp;
+    }).catch(() => cached))
+  );
 });
