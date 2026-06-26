@@ -2,7 +2,7 @@
 // Le HTML est toujours récupéré du réseau en priorité (donc tout nouveau déploiement
 // GitHub Pages apparaît immédiatement), avec repli sur le cache si hors ligne.
 // Les fichiers statiques (icônes, polices) restent en cache-first pour la vitesse.
-const CACHE = 'fatloss-v5';
+const CACHE = 'fatloss-v7';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
